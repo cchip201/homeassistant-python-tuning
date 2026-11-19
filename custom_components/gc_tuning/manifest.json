@@ -9,10 +9,10 @@
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/cchip201/TODO-PHASE2-REPO-NAME",
+  "documentation": "https://github.com/cchip201/homeassistant-python-tuning",
   "integration_type": "service",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/cchip201/TODO-PHASE2-REPO-NAME/issues",
+  "issue_tracker": "https://github.com/cchip201/homeassistant-python-tuning/issues",
   "requirements": [],
   "single_config_entry": true,
   "version": "1.0.0"

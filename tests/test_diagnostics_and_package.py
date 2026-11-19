@@ -91,11 +91,13 @@ def test_manifest() -> None:
     assert manifest["codeowners"] == ["@cchip201"]
 
 
-def test_phase_two_placeholders_are_marked() -> None:
-    """documentation and issue_tracker wait for the repository name; publishing replaces both and this test."""
+def test_manifest_links_point_at_the_repository() -> None:
+    """documentation and issue_tracker name the public repository (HACS and the integration page read them)."""
     manifest = json.loads((PKG / "manifest.json").read_text())
-    assert "TODO-PHASE2-REPO-NAME" in manifest["documentation"]
-    assert "TODO-PHASE2-REPO-NAME" in manifest["issue_tracker"]
+    repo = "https://github.com/cchip201/homeassistant-python-tuning"
+    assert manifest["documentation"] == repo
+    assert manifest["issue_tracker"] == repo + "/issues"
+    assert "TODO" not in json.dumps(manifest)
 
 
 def _keys(node: object, prefix: str = "") -> set[str]:

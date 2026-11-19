@@ -24,7 +24,7 @@ the hour after, memory flat.
 
 ## Install
 
-- HACS: Custom repositories, add `https://github.com/cchip201/TODO-PHASE2-REPO-NAME` as type Integration, download, restart Home Assistant once.
+- HACS: Custom repositories, add `https://github.com/cchip201/homeassistant-python-tuning` as type Integration, download, restart Home Assistant once.
 - Then Settings, Devices & services, Add integration, "GC tuning". One instance only.
 - Needs Home Assistant 2026.3.0 or later (the icon is shipped in `brand/`).
 
