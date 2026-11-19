@@ -1,0 +1,127 @@
+{
+  "title": "GC tuning",
+  "config": {
+    "step": {
+      "user": {
+        "title": "GC tuning",
+        "description": "Adds the garbage collector tuning with the proven settings: 300 seconds after Home Assistant has started, one full collection, the start-up objects are frozen and the generation 0 threshold is set to 50000 (generations 1 and 2: 10 and 10). Every value can be changed afterwards under Configure."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "GC tuning is already set up. Only one instance is possible."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "GC tuning",
+        "description": "Changes take effect at once. Home Assistant is not restarted.",
+        "menu_options": {
+          "settings": "Change the settings",
+          "reset": "Reset to the proven defaults"
+        }
+      },
+      "settings": {
+        "title": "GC tuning settings",
+        "description": "The proven fix is: enabled, 300 s, 50000 / 10 / 10, freeze on. Turning \"Enabled\" off puts Python's own thresholds back and unfreezes the objects this integration froze; the next full collection then walks every object again.",
+        "data": {
+          "enabled": "Enabled",
+          "start_delay": "Start delay",
+          "threshold0": "Generation 0 threshold",
+          "threshold1": "Generation 1 threshold",
+          "threshold2": "Generation 2 threshold",
+          "freeze": "Freeze the start-up objects",
+          "log_min_ms": "Log collections longer than"
+        },
+        "data_description": {
+          "enabled": "Apply the tuning after Home Assistant has started. Off: the sensors keep observing and nothing is changed.",
+          "start_delay": "Seconds after Home Assistant has started until the tuning is applied (60 to 1800). Applied once per start; a later change of this value only matters while the tuning is still waiting.",
+          "threshold0": "New objects between two generation 0 collections (700 to 200000). Python's own value is 2000.",
+          "threshold1": "Generation 0 collections between two generation 1 collections (1 to 100). Python's own value is 10.",
+          "threshold2": "Generation 1 collections between two generation 2 (full) collections (1 to 100). Python's own value is 10.",
+          "freeze": "Move every object alive at apply time into a permanent generation that full collections skip. Done once; turning it off later unfreezes.",
+          "log_min_ms": "A WARNING line is written for every collection at least this long, in milliseconds (10 to 60000). Every full collection is logged at INFO anyway."
+        }
+      },
+      "reset": {
+        "title": "Reset to the proven defaults",
+        "description": "Stores the proven values and applies them at once: {defaults}."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "full_collections_last_hour": {
+        "name": "Full collections in the last hour"
+      },
+      "longest_pause_last_hour": {
+        "name": "Longest pause in the last hour"
+      },
+      "last_full_collection_duration": {
+        "name": "Last full collection duration"
+      },
+      "frozen_objects": {
+        "name": "Frozen objects"
+      },
+      "thresholds": {
+        "name": "Thresholds",
+        "state_attributes": {
+          "generation_0": {
+            "name": "Generation 0"
+          },
+          "generation_1": {
+            "name": "Generation 1"
+          },
+          "generation_2": {
+            "name": "Generation 2"
+          }
+        }
+      },
+      "applied_at": {
+        "name": "Applied at"
+      },
+      "process_memory": {
+        "name": "Process memory (RSS)"
+      }
+    }
+  },
+  "services": {
+    "apply": {
+      "name": "Apply the tuning",
+      "description": "One full garbage collection, then (if freeze is on) move the live heap into the permanent generation, then set the configured thresholds. Runs on command whatever the start delay and returns what it did."
+    },
+    "freeze": {
+      "name": "Freeze the heap",
+      "description": "One full garbage collection, then move every object now alive into the permanent generation so later full collections skip it."
+    },
+    "unfreeze": {
+      "name": "Unfreeze the heap",
+      "description": "Move the permanent generation back into generation 2 (undoes freeze; the next full collection walks everything again)."
+    },
+    "collect": {
+      "name": "Full collection",
+      "description": "Run one full garbage collection on the event loop and log how long it took."
+    },
+    "stats": {
+      "name": "GC statistics",
+      "description": "Return the thresholds, the frozen-object count, the collections observed per generation and the newest generation 1 and 2 collections.",
+      "fields": {
+        "recent": {
+          "name": "Recent",
+          "description": "How many of the newest collections to return."
+        }
+      }
+    }
+  },
+  "issues": {
+    "deprecated_yaml": {
+      "title": "The gc_tuning YAML block can be removed",
+      "description": "GC tuning is now set up in the user interface and its settings are kept in the integration entry. The `gc_tuning:` block in configuration.yaml was imported once and is ignored from now on. Remove it from configuration.yaml; no restart is needed for that."
+    }
+  },
+  "exceptions": {
+    "not_loaded": {
+      "message": "GC tuning is not set up or not loaded. Add the integration under Settings, Devices & services."
+    }
+  }
+}

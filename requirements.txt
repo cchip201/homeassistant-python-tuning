@@ -1,0 +1,6 @@
+# Development and test requirements (the integration itself needs none: manifest "requirements" is empty).
+# pytest-homeassistant-custom-component pins the matching homeassistant, pytest and pytest-asyncio.
+pytest-homeassistant-custom-component
+coverage
+pyright
+pillow

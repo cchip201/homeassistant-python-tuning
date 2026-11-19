@@ -1,0 +1,59 @@
+name: Release
+
+# A pushed v* tag publishes its own release. HACS offers a version only once its GitHub release is
+# PUBLISHED; a bare tag is invisible to it. A release created here with GITHUB_TOKEN does not fire
+# `release: published` (GitHub does not start workflows from GITHUB_TOKEN events), so the zip is built
+# in this same run. The release trigger stays, so a release published by hand still gets its zip.
+# The tag must equal "v" + the version in manifest.json, or the run stops before anything is published.
+on:
+  push:
+    tags: ['v*']
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match manifest.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(jq -r .version custom_components/gc_tuning/manifest.json)"
+          if [ "$tag" != "$version" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match manifest version ${version}"
+            exit 1
+          fi
+      - name: Publish the release for a pushed tag
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $TAG already exists - leaving it as it is"
+            exit 0
+          fi
+          flags=""
+          case "$TAG" in *-rc*|*-beta*|*-alpha*) flags="--prerelease" ;; esac
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --generate-notes $flags
+      - name: Archive Release
+        uses: thedoctor0/zip-release@0.7.1
+        with:
+          type: 'zip'
+          directory: custom_components/gc_tuning
+          filename: 'gc_tuning.zip'
+          exclusions: '*.git* .editorconfig *.vscode* *.github*'
+      - name: Upload zip to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: custom_components/gc_tuning/gc_tuning.zip
+          asset_name: gc_tuning.zip
+          tag: ${{ github.ref }}
+          overwrite: true

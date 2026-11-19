@@ -1,0 +1,30 @@
+name: Code Quality
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        name: Setup Python
+        with:
+          python-version: 3.14
+      - name: Update pip
+        run: python -m pip install --upgrade pip
+      - name: Install dependencies
+        run: pip install --upgrade -r requirements.txt
+      - name: Run Unit Tests
+        run: coverage run -m pytest
+      - name: Coverage summary
+        run: coverage report --include="custom_components/*"
+      - name: Run Type Checks
+        run: pyright

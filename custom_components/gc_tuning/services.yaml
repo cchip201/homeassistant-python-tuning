@@ -1,0 +1,12 @@
+apply:
+freeze:
+unfreeze:
+collect:
+stats:
+  fields:
+    recent:
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 200

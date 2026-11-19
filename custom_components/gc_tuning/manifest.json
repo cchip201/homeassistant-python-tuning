@@ -1,0 +1,19 @@
+{
+  "domain": "gc_tuning",
+  "name": "GC tuning",
+  "categories": [
+    "computers_network.monitoring"
+  ],
+  "codeowners": [
+    "@cchip201"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/cchip201/TODO-PHASE2-REPO-NAME",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/cchip201/TODO-PHASE2-REPO-NAME/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}
