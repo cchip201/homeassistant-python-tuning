@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
-from homeassistant.core import Event, HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.util import dt as dt_util
 
 from custom_components.gc_tuning import runtime as runtime_module
@@ -79,8 +79,14 @@ def _runtime(entry: Any) -> GcRuntime:
 
 
 def _events(hass: HomeAssistant) -> list[Event]:
+    """Every operation event, in order. A @callback listener runs inline on the loop at the moment of the event."""
     seen: list[Event] = []
-    hass.bus.async_listen(EVENT_OPERATION, seen.append)
+
+    @callback
+    def record(event: Event) -> None:
+        seen.append(event)
+
+    hass.bus.async_listen(EVENT_OPERATION, record)
     return seen
 
 
@@ -383,7 +389,8 @@ async def test_every_operation_fires_one_event_after_the_sensors_changed(hass: H
     entry = await setup_entry(hass, UPKEEP_ON)
     states_at_event: list[tuple[str, str]] = []
 
-    def on_event(event: Event) -> None:
+    @callback
+    def on_event(event: Event) -> None:  # inline on the loop: the sensor is read at the moment of the event
         states_at_event.append((event.data["action"], state_of(hass, entry, "last_operation")))
 
     hass.bus.async_listen(EVENT_OPERATION, on_event)
