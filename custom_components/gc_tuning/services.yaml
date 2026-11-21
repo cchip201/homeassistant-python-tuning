@@ -2,6 +2,7 @@ apply:
 freeze:
 unfreeze:
 collect:
+maintain:
 stats:
   fields:
     recent:

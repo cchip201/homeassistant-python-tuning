@@ -8,7 +8,7 @@ import sys
 from unittest.mock import patch
 
 import pytest
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -26,7 +26,13 @@ async def _poll(hass: HomeAssistant, seconds: float = 61) -> None:
     await hass.async_block_till_done()
 
 
-async def test_seven_sensors_on_one_device(hass: HomeAssistant, fake_gc: FakeGc) -> None:
+async def _refresh(hass: HomeAssistant, entry: MockConfigEntry) -> None:
+    """One coordinator poll, made directly: the timer-driven poll depends on the coordinator's random jitter and flakes."""
+    await entry.runtime_data.coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+
+async def test_eleven_sensors_on_one_device(hass: HomeAssistant, fake_gc: FakeGc) -> None:
     entry = await setup_entry(hass)
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, entry.entry_id)
@@ -37,9 +43,13 @@ async def test_seven_sensors_on_one_device(hass: HomeAssistant, fake_gc: FakeGc)
         "frozen_objects",
         "thresholds",
         "applied_at",
+        "last_operation",
+        "last_operation_duration",
+        "last_maintenance_at",
+        "longest_auto_full_since_freeze",
         "process_memory",
     }
-    assert len(SENSORS) == 7
+    assert len(SENSORS) == 11
     assert len({e.device_id for e in entries}) == 1
     device = dr.async_get(hass).async_get(entries[0].device_id)
     assert device is not None and device.name == "GC tuning"
@@ -65,7 +75,7 @@ async def test_sensors_follow_the_collections(hass: HomeAssistant, fake_gc: Fake
     fake_gc.run(1, 0.35)
     clock.now += 60
     fake_gc.run(2, 0.5)  # the most recent full collection
-    await _poll(hass)
+    await _refresh(hass, entry)
 
     assert state_of(hass, entry, "full_collections_last_hour") == "2"
     assert float(state_of(hass, entry, "longest_pause_last_hour")) == pytest.approx(2.4)
@@ -77,17 +87,17 @@ async def test_the_hour_window_slides(hass: HomeAssistant, fake_gc: FakeGc, cloc
     fake_gc.run(2, 2.4)
     clock.now += 1800
     fake_gc.run(2, 0.4)
-    await _poll(hass)
+    await _refresh(hass, entry)
     assert state_of(hass, entry, "full_collections_last_hour") == "2"
     assert float(state_of(hass, entry, "longest_pause_last_hour")) == pytest.approx(2.4)
 
     clock.now += 1830  # the first one is now over an hour old (the longest pause is exact to 10 s)
-    await _poll(hass)
+    await _refresh(hass, entry)
     assert state_of(hass, entry, "full_collections_last_hour") == "1"
     assert float(state_of(hass, entry, "longest_pause_last_hour")) == pytest.approx(0.4)
 
     clock.now += 3700  # both gone; the last duration stays what it was
-    await _poll(hass)
+    await _refresh(hass, entry)
     assert state_of(hass, entry, "full_collections_last_hour") == "0"
     assert state_of(hass, entry, "longest_pause_last_hour") == "0.0"
     assert float(state_of(hass, entry, "last_full_collection_duration")) == pytest.approx(0.4)
@@ -170,7 +180,7 @@ async def test_the_sensors_are_real_with_the_real_collector(hass: HomeAssistant,
     first = int(state_of(hass, entry, "full_collections_last_hour"))
     for _ in range(3):
         gc.collect()
-    await _poll(hass)
+    await _refresh(hass, entry)
     assert int(state_of(hass, entry, "full_collections_last_hour")) >= first + 3
     # a collection of an already frozen heap can take under half a millisecond, which a 3-decimal sensor shows as 0.0
     assert float(state_of(hass, entry, "longest_pause_last_hour")) >= 0

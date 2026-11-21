@@ -37,7 +37,12 @@ async def test_diagnostics_download(hass: HomeAssistant, hass_client: ClientSess
         "thresholds",
         "applied_at",
         "process_memory_mb",
+        "last_operation",
+        "last_maintenance_at",
+        "longest_auto_full_since_freeze",
     }
+    assert data["sensors"]["last_operation"] is None  # nothing was done yet
+    assert data["runtime"]["upkeep_allowed"] is False and data["runtime"]["upkeep_timers_armed"] == 0
     assert "python" in data["runtime"]
     json.dumps(data)  # serialisable as downloaded
 
@@ -82,7 +87,7 @@ async def test_home_assistant_serves_the_local_brand_icon(hass: HomeAssistant, h
 def test_manifest() -> None:
     manifest = json.loads((PKG / "manifest.json").read_text())
     assert manifest["domain"] == "gc_tuning"
-    assert manifest["version"] == "1.0.0"
+    assert manifest["version"] == "1.1.0"
     assert manifest["config_flow"] is True
     assert manifest["single_config_entry"] is True
     assert manifest["integration_type"] == "service"
@@ -123,11 +128,15 @@ def test_every_string_the_code_uses_has_an_english_text() -> None:
         "issues.deprecated_yaml.description",
         "exceptions.not_loaded.message",
     }
-    for key in ("enabled", "start_delay", "threshold0", "threshold1", "threshold2", "freeze", "log_min_ms"):
+    for key in (
+        "enabled", "start_delay", "threshold0", "threshold1", "threshold2", "freeze", "log_min_ms",
+        "daily_maintenance", "daily_time", "refreeze_interval_hours", "refreeze_pause_ms", "full_collection_minutes",
+    ):
         expected |= {f"options.step.settings.data.{key}", f"options.step.settings.data_description.{key}"}
-    for key in ("full_collections_last_hour", "longest_pause_last_hour", "last_full_collection_duration", "frozen_objects", "thresholds", "applied_at", "process_memory"):
+    for key in ("full_collections_last_hour", "longest_pause_last_hour", "last_full_collection_duration", "frozen_objects", "thresholds", "applied_at", "process_memory",
+                "last_operation", "last_operation_duration", "last_maintenance_at", "longest_auto_full_since_freeze"):
         expected.add(f"entity.sensor.{key}.name")
-    for service in ("apply", "freeze", "unfreeze", "collect", "stats"):
+    for service in ("apply", "freeze", "unfreeze", "collect", "maintain", "stats"):
         expected |= {f"services.{service}.name", f"services.{service}.description"}
     expected |= {"services.stats.fields.recent.name", "services.stats.fields.recent.description"}
     assert expected - keys == set()
@@ -141,3 +150,24 @@ def test_every_sensor_description_has_a_translation_and_an_icon() -> None:
     for description in SENSORS:
         assert description.translation_key in en["entity"]["sensor"]
         assert description.translation_key in icons["entity"]["sensor"]
+
+
+def test_every_service_has_an_icon_and_a_description_in_services_yaml() -> None:
+    icons = json.loads((PKG / "icons.json").read_text())
+    en = json.loads((PKG / "translations" / "en.json").read_text())
+    services = [line.split(":")[0] for line in (PKG / "services.yaml").read_text().splitlines() if line and not line.startswith(" ")]
+    assert services == ["apply", "freeze", "unfreeze", "collect", "maintain", "stats"]
+    for service in services:
+        assert service in icons["services"] and service in en["services"]
+
+
+def test_every_option_has_a_form_field_a_default_and_a_text() -> None:
+    from custom_components.gc_tuning.config_flow import settings_schema
+    from custom_components.gc_tuning.const import DEFAULT_OPTIONS
+
+    en = json.loads((PKG / "translations" / "en.json").read_text())
+    fields = [str(k) for k in settings_schema().schema]
+    assert sorted(fields) == sorted(DEFAULT_OPTIONS)
+    for key in DEFAULT_OPTIONS:
+        assert key in en["options"]["step"]["settings"]["data"]
+        assert key in en["options"]["step"]["settings"]["data_description"]

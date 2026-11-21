@@ -14,13 +14,19 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    TimeSelector,
 )
 
 from .const import (
     BOUNDS,
+    CONF_DAILY_MAINTENANCE,
+    CONF_DAILY_TIME,
     CONF_ENABLED,
     CONF_FREEZE,
+    CONF_FULL_MINUTES,
     CONF_LOG_MIN_MS,
+    CONF_REFREEZE_HOURS,
+    CONF_REFREEZE_PAUSE_MS,
     CONF_START_DELAY,
     CONF_THRESHOLD0,
     CONF_THRESHOLD1,
@@ -53,6 +59,11 @@ def settings_schema() -> vol.Schema:
             vol.Required(CONF_THRESHOLD1): _number(CONF_THRESHOLD1),
             vol.Required(CONF_THRESHOLD2): _number(CONF_THRESHOLD2),
             vol.Required(CONF_FREEZE): BooleanSelector(),
+            vol.Required(CONF_DAILY_MAINTENANCE): BooleanSelector(),
+            vol.Required(CONF_DAILY_TIME): TimeSelector(),
+            vol.Required(CONF_REFREEZE_HOURS): _number(CONF_REFREEZE_HOURS, "h"),
+            vol.Required(CONF_REFREEZE_PAUSE_MS): _number(CONF_REFREEZE_PAUSE_MS, "ms"),
+            vol.Required(CONF_FULL_MINUTES): _number(CONF_FULL_MINUTES, "min"),
             vol.Required(CONF_LOG_MIN_MS): _number(CONF_LOG_MIN_MS, "ms"),
         }
     )
@@ -109,7 +120,10 @@ class GcTuningOptionsFlow(OptionsFlow):
                 "defaults": (
                     f"enabled, start delay {DEFAULT_OPTIONS[CONF_START_DELAY]} s, thresholds "
                     f"{DEFAULT_OPTIONS[CONF_THRESHOLD0]} / {DEFAULT_OPTIONS[CONF_THRESHOLD1]} / {DEFAULT_OPTIONS[CONF_THRESHOLD2]}, "
-                    "freeze on"
+                    f"freeze on, daily maintenance at {str(DEFAULT_OPTIONS[CONF_DAILY_TIME])[:5]}, "
+                    f"re-freeze every {DEFAULT_OPTIONS[CONF_REFREEZE_HOURS]} h once a full collection took "
+                    f"{DEFAULT_OPTIONS[CONF_REFREEZE_PAUSE_MS]} ms, a full collection at least every "
+                    f"{DEFAULT_OPTIONS[CONF_FULL_MINUTES]} min"
                 )
             },
         )

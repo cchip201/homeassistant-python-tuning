@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "GC tuning",
-        "description": "Adds the garbage collector tuning with the proven settings: 300 seconds after Home Assistant has started, one full collection, the start-up objects are frozen and the generation 0 threshold is set to 50000 (generations 1 and 2: 10 and 10). Every value can be changed afterwards under Configure."
+        "description": "Adds the garbage collector tuning with the proven settings: 300 seconds after Home Assistant has started, one full collection, the start-up objects are frozen and the generation 0 threshold is set to 50000 (generations 1 and 2: 10 and 10). Once a day at 04:30 the frozen heap is rebuilt, it is re-frozen every 6 hours once a full collection took 500 ms, and a full collection runs at least every 45 minutes. Every value can be changed afterwards under Configure."
       }
     },
     "abort": {
@@ -23,7 +23,7 @@
       },
       "settings": {
         "title": "GC tuning settings",
-        "description": "The proven fix is: enabled, 300 s, 50000 / 10 / 10, freeze on. Turning \"Enabled\" off puts Python's own thresholds back and unfreezes the objects this integration froze; the next full collection then walks every object again.",
+        "description": "The proven defaults are: enabled, 300 s, 50000 / 10 / 10, freeze on, daily maintenance at 04:30, re-freeze every 6 h at 500 ms, a full collection at least every 45 min. Turning \"Enabled\" off puts Python's own thresholds back, unfreezes the objects this integration froze and stops the upkeep; the next full collection then walks every object again.",
         "data": {
           "enabled": "Enabled",
           "start_delay": "Start delay",
@@ -31,21 +31,31 @@
           "threshold1": "Generation 1 threshold",
           "threshold2": "Generation 2 threshold",
           "freeze": "Freeze the start-up objects",
-          "log_min_ms": "Log collections longer than"
+          "log_min_ms": "Log collections longer than",
+          "daily_maintenance": "Daily maintenance",
+          "daily_time": "Daily maintenance time",
+          "refreeze_interval_hours": "Re-freeze every",
+          "refreeze_pause_ms": "Re-freeze only after a full collection of",
+          "full_collection_minutes": "Full collection at least every"
         },
         "data_description": {
           "enabled": "Apply the tuning after Home Assistant has started. Off: the sensors keep observing and nothing is changed.",
           "start_delay": "Seconds after Home Assistant has started until the tuning is applied (60 to 1800). Applied once per start; a later change of this value only matters while the tuning is still waiting.",
-          "threshold0": "New objects between two generation 0 collections (700 to 200000). Python's own value is 2000.",
+          "threshold0": "New objects between two generation 0 collections (700 to 200000). Python's own value is 2000. A lower value runs more full collections in a burst of allocations, each of them walking the unfrozen heap.",
           "threshold1": "Generation 0 collections between two generation 1 collections (1 to 100). Python's own value is 10.",
           "threshold2": "Generation 1 collections between two generation 2 (full) collections (1 to 100). Python's own value is 10.",
           "freeze": "Move every object alive at apply time into a permanent generation that full collections skip. Done once; turning it off later unfreezes.",
-          "log_min_ms": "A WARNING line is written for every collection at least this long, in milliseconds (10 to 60000). Every full collection is logged at INFO anyway."
+          "log_min_ms": "A WARNING line is written for every collection at least this long, in milliseconds (10 to 60000). Every full collection is logged at INFO anyway.",
+          "daily_maintenance": "Once a day: unfreeze, collect, freeze. Reclaims objects that were frozen and have died since, and starts the next day with a small unfrozen heap. One pause of about 2 to 3 seconds. Needs the freeze option.",
+          "daily_time": "Local time of the daily maintenance; the re-freeze slots are spaced from it. Choose a quiet hour.",
+          "refreeze_interval_hours": "Collect and freeze again every N hours (0 = off; 1, 2, 3, 4, 6, 8, 12 or 24; other values are rounded). The slots are anchored at the daily maintenance time. Frozen objects that die later are only reclaimed by the daily maintenance.",
+          "refreeze_pause_ms": "A re-freeze slot only runs once a full collection that Python started itself has taken at least this long since the last freeze (0 = every slot runs). Ignored while the daily maintenance is off: then the slots do the full maintenance.",
+          "full_collection_minutes": "Run a full collection when none happened for this many minutes (0 = off, otherwise 5 to 1440). Small and frequent instead of rare and large: a full collection frees what built up since the last one. Needs the freeze option."
         }
       },
       "reset": {
         "title": "Reset to the proven defaults",
-        "description": "Stores the proven values and applies them at once: {defaults}."
+        "description": "Stores the proven defaults and applies them at once: {defaults}."
       }
     }
   },
@@ -80,6 +90,18 @@
       "applied_at": {
         "name": "Applied at"
       },
+      "last_operation": {
+        "name": "Last operation"
+      },
+      "last_operation_duration": {
+        "name": "Last operation duration"
+      },
+      "last_maintenance_at": {
+        "name": "Last maintenance at"
+      },
+      "longest_auto_full_since_freeze": {
+        "name": "Longest full collection since freeze"
+      },
       "process_memory": {
         "name": "Process memory (RSS)"
       }
@@ -92,7 +114,7 @@
     },
     "freeze": {
       "name": "Freeze the heap",
-      "description": "One full garbage collection, then move every object now alive into the permanent generation so later full collections skip it."
+      "description": "One full garbage collection, then move every object now alive into the permanent generation so later full collections skip it. Objects that die later stay in the permanent generation until the next maintenance."
     },
     "unfreeze": {
       "name": "Unfreeze the heap",
@@ -111,6 +133,10 @@
           "description": "How many of the newest collections to return."
         }
       }
+    },
+    "maintain": {
+      "name": "Maintenance",
+      "description": "Unfreeze the permanent generation, run one full collection, then freeze again. Reclaims objects that were frozen and have died since. One pause of about 2 to 3 seconds; returns what it did."
     }
   },
   "issues": {

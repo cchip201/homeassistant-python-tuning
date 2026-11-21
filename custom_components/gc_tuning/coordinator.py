@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-    from .tuner import GcTuner
+    from .tuner import GcTuner, Operation
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +46,9 @@ class GcSnapshot:
     thresholds: tuple[int, int, int]
     applied_at: datetime | None
     process_memory_mb: float | None
+    last_operation: Operation | None
+    last_maintenance_at: datetime | None
+    longest_auto_full_since_freeze: float
 
 
 class GcCoordinator(DataUpdateCoordinator[GcSnapshot]):
@@ -86,8 +89,11 @@ class GcCoordinator(DataUpdateCoordinator[GcSnapshot]):
             full_collections_last_hour=hour["full_collections"],
             longest_pause_last_hour=round(hour["longest_pause_seconds"], 3),
             last_full_collection_seconds=None if tuner.last_full_seconds is None else round(tuner.last_full_seconds, 3),
-            frozen_objects=tuner_module.gc.get_freeze_count(),
+            frozen_objects=tuner.frozen_count(),
             thresholds=(t0, t1, t2),
             applied_at=tuner.applied_at,
             process_memory_mb=rss,
+            last_operation=tuner.last_operation,
+            last_maintenance_at=tuner.last_maintenance_at,
+            longest_auto_full_since_freeze=round(tuner.peak_auto_full, 3),
         )

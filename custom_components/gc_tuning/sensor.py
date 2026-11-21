@@ -80,6 +80,36 @@ SENSORS: tuple[GcSensorDescription, ...] = (
         value_fn=lambda s: s.applied_at,
     ),
     GcSensorDescription(
+        key="last_operation",
+        translation_key="last_operation",
+        value_fn=lambda s: None if s.last_operation is None else s.last_operation.action,
+        attrs_fn=lambda s: {} if s.last_operation is None else {k: v for k, v in s.last_operation.as_dict().items() if k != "action"},
+    ),
+    GcSensorDescription(
+        key="last_operation_duration",
+        translation_key="last_operation_duration",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
+        value_fn=lambda s: None if s.last_operation is None else round(s.last_operation.duration_ms / 1000.0, 3),
+    ),
+    GcSensorDescription(
+        key="last_maintenance_at",
+        translation_key="last_maintenance_at",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda s: s.last_maintenance_at,
+    ),
+    GcSensorDescription(
+        key="longest_auto_full_since_freeze",
+        translation_key="longest_auto_full_since_freeze",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
+        value_fn=lambda s: s.longest_auto_full_since_freeze,
+    ),
+    GcSensorDescription(
         key="process_memory",
         translation_key="process_memory",
         device_class=SensorDeviceClass.DATA_SIZE,
@@ -128,6 +158,6 @@ class GcSensor(CoordinatorEntity[GcCoordinator], SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Only the thresholds sensor has attributes."""
+        """Only the thresholds and last-operation sensors have attributes."""
         fn = self.entity_description.attrs_fn
         return fn(self.coordinator.data) if fn else None

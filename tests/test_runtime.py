@@ -258,7 +258,7 @@ async def test_a_failing_apply_does_not_break_the_entry(hass: HomeAssistant, fak
 
 async def test_domain_has_no_services_left_unregistered(hass: HomeAssistant, fake_gc: FakeGc) -> None:
     await setup_entry(hass)
-    assert set(hass.services.async_services_for_domain(DOMAIN)) == {"apply", "freeze", "unfreeze", "collect", "stats"}
+    assert set(hass.services.async_services_for_domain(DOMAIN)) == {"apply", "freeze", "unfreeze", "collect", "maintain", "stats"}
 
 
 async def test_the_proven_fix_on_the_real_collector(hass: HomeAssistant) -> None:

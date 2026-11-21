@@ -7,6 +7,10 @@
       "frozen_objects": {"default": "mdi:snowflake"},
       "thresholds": {"default": "mdi:tune-vertical"},
       "applied_at": {"default": "mdi:clock-check-outline"},
+      "last_operation": {"default": "mdi:history"},
+      "last_operation_duration": {"default": "mdi:timer-outline"},
+      "last_maintenance_at": {"default": "mdi:calendar-clock"},
+      "longest_auto_full_since_freeze": {"default": "mdi:timer-sand"},
       "process_memory": {"default": "mdi:memory"}
     }
   },
@@ -15,6 +19,7 @@
     "freeze": {"service": "mdi:snowflake"},
     "unfreeze": {"service": "mdi:snowflake-off"},
     "collect": {"service": "mdi:broom"},
+    "maintain": {"service": "mdi:wrench-clock"},
     "stats": {"service": "mdi:chart-line"}
   }
 }

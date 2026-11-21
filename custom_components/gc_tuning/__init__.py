@@ -3,6 +3,8 @@
 Python 3.14's generational collector pauses the whole process for 2-3 s on every full (generation 2)
 collection of a large instance. After start-up this integration freezes the start-up heap and raises the
 generation-0 threshold, so full collections skip the objects that live as long as Home Assistant does.
+Since 1.1.0 it also keeps that frozen heap small: a daily unfreeze + collect + freeze, a periodic re-freeze,
+and a full collection at least every N minutes. Each operation fires a `gc_tuning_operation` event.
 
 Set up from the UI (Settings > Devices & services > Add integration). A `gc_tuning:` YAML block of the 0.1.0
 version is imported once; after that the entry holds the settings and the YAML block can be removed.
@@ -35,6 +37,7 @@ from .const import (
     SERVICE_APPLY,
     SERVICE_COLLECT,
     SERVICE_FREEZE,
+    SERVICE_MAINTAIN,
     SERVICE_STATS,
     SERVICE_UNFREEZE,
     YAML_AUTO_APPLY,
@@ -149,7 +152,7 @@ def _runtime(hass: HomeAssistant) -> GcRuntime:
 
 @callback
 def _register_services(hass: HomeAssistant) -> None:
-    """The five services of 0.1.0, all returning a response; services.yaml describes them."""
+    """The five services of 0.1.0 and `maintain` (1.1.0), all returning a response; services.yaml describes them."""
 
     @callback
     def _svc_apply(call: ServiceCall) -> ServiceResponse:
@@ -174,6 +177,13 @@ def _register_services(hass: HomeAssistant) -> None:
         return _runtime(hass).tuner.collect()
 
     @callback
+    def _svc_maintain(call: ServiceCall) -> ServiceResponse:
+        runtime = _runtime(hass)
+        result = runtime.tuner.maintain()
+        runtime.publish()
+        return result
+
+    @callback
     def _svc_stats(call: ServiceCall) -> ServiceResponse:
         return _runtime(hass).tuner.stats(recent=int(call.data.get("recent", 20)))
 
@@ -182,6 +192,7 @@ def _register_services(hass: HomeAssistant) -> None:
         (SERVICE_FREEZE, _svc_freeze, None),
         (SERVICE_UNFREEZE, _svc_unfreeze, None),
         (SERVICE_COLLECT, _svc_collect, None),
+        (SERVICE_MAINTAIN, _svc_maintain, None),
         (SERVICE_STATS, _svc_stats, STATS_SCHEMA),
     ):
         hass.services.async_register(DOMAIN, name, fn, schema=schema, supports_response=SupportsResponse.OPTIONAL)  # pyright: ignore[reportArgumentType]

@@ -50,6 +50,12 @@ async def test_import_flow_maps_the_old_yaml_keys(hass: HomeAssistant, fake_gc: 
         "threshold2": 9,
         "freeze": False,
         "log_min_ms": 250,
+        # the 0.1.0 YAML had no upkeep keys: they take the 1.1.0 defaults
+        "daily_maintenance": True,
+        "daily_time": "04:30:00",
+        "refreeze_interval_hours": 6,
+        "refreeze_pause_ms": 500,
+        "full_collection_minutes": 45,
     }
 
 
@@ -110,6 +116,22 @@ async def test_yaml_values_outside_the_new_bounds_are_pulled_in(
         assert options[key] == value
 
 
+FORM_VALUES: dict[str, Any] = {
+    "enabled": True,
+    "start_delay": 300,
+    "threshold0": 50000,
+    "threshold1": 10,
+    "threshold2": 10,
+    "freeze": True,
+    "daily_maintenance": True,
+    "daily_time": "04:30:00",
+    "refreeze_interval_hours": 6,
+    "refreeze_pause_ms": 500,
+    "full_collection_minutes": 45,
+    "log_min_ms": 500,
+}
+
+
 async def _open_settings(hass: HomeAssistant, entry: MockConfigEntry) -> dict[str, Any]:
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
@@ -125,7 +147,8 @@ async def test_options_flow_saves_whole_numbers(hass: HomeAssistant, fake_gc: Fa
     result = await _open_settings(hass, entry)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {"enabled": True, "start_delay": 120.0, "threshold0": 60000.0, "threshold1": 20, "threshold2": 15, "freeze": True, "log_min_ms": 250},
+        {**FORM_VALUES, "start_delay": 120.0, "threshold0": 60000.0, "threshold1": 20, "threshold2": 15, "log_min_ms": 250,
+         "daily_time": "03:15:00", "refreeze_interval_hours": 4.0, "refreeze_pause_ms": 750.0, "full_collection_minutes": 30.0},
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options == {
@@ -136,8 +159,14 @@ async def test_options_flow_saves_whole_numbers(hass: HomeAssistant, fake_gc: Fa
         "threshold2": 15,
         "freeze": True,
         "log_min_ms": 250,
+        "daily_maintenance": True,
+        "daily_time": "03:15:00",
+        "refreeze_interval_hours": 4,
+        "refreeze_pause_ms": 750,
+        "full_collection_minutes": 30,
     }
-    assert all(type(v) in (int, bool) for v in entry.options.values())
+    assert all(type(v) in (int, bool, str) for v in entry.options.values())
+    assert all(type(v) is int for k, v in entry.options.items() if k not in ("enabled", "freeze", "daily_maintenance", "daily_time"))
 
 
 @pytest.mark.parametrize(
@@ -151,16 +180,22 @@ async def test_options_flow_saves_whole_numbers(hass: HomeAssistant, fake_gc: Fa
         {"threshold1": 101},
         {"threshold2": 0},
         {"threshold2": 101},
+        {"refreeze_interval_hours": -1},
+        {"refreeze_interval_hours": 25},
+        {"refreeze_pause_ms": -1},
+        {"refreeze_pause_ms": 10_001},
+        {"full_collection_minutes": -1},
+        {"full_collection_minutes": 1441},
     ],
 )
 async def test_options_flow_refuses_values_outside_the_bounds(hass: HomeAssistant, fake_gc: FakeGc, bad: dict[str, int]) -> None:
     entry = await setup_entry(hass)
+    before = dict(entry.options)
     result = await _open_settings(hass, entry)
-    values = {"enabled": True, "start_delay": 300, "threshold0": 50000, "threshold1": 10, "threshold2": 10, "freeze": True, "log_min_ms": 500}
-    values.update(bad)
+    values = {**FORM_VALUES, **bad}
     with pytest.raises(InvalidData):
         await hass.config_entries.options.async_configure(result["flow_id"], values)
-    assert entry.options == DEFAULT_OPTIONS
+    assert dict(entry.options) == before
 
 
 async def test_options_flow_form_shows_the_current_values(hass: HomeAssistant, fake_gc: FakeGc) -> None:
@@ -181,3 +216,37 @@ async def test_reset_to_the_proven_defaults(hass: HomeAssistant, fake_gc: FakeGc
     result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options == DEFAULT_OPTIONS
+
+
+async def test_options_flow_pulls_a_too_small_collection_interval_up_and_rounds_the_re_freeze(hass: HomeAssistant, fake_gc: FakeGc) -> None:
+    """The form lets 1-4 minutes and 5 hours through; the stored value is the usable one (0 stays off)."""
+    entry = await setup_entry(hass)
+    result = await _open_settings(hass, entry)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {**FORM_VALUES, "full_collection_minutes": 2, "refreeze_interval_hours": 5}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["full_collection_minutes"] == 5
+    assert entry.options["refreeze_interval_hours"] == 4  # 5 is equally far from 4 and 6: ties go to the more frequent
+
+
+async def test_options_flow_form_has_the_upkeep_fields_and_a_time_picker(hass: HomeAssistant, fake_gc: FakeGc) -> None:
+    entry = await setup_entry(hass)  # an entry stored by 1.0.0 would lack these keys: the form still fills them
+    result = await _open_settings(hass, entry)
+    names = [str(k) for k in result["data_schema"].schema]
+    assert names == list(FORM_VALUES)
+    suggested = {str(k): k.description["suggested_value"] for k in result["data_schema"].schema if k.description}
+    assert suggested["daily_time"] == "04:30:00" or suggested["daily_time"] == entry.options["daily_time"]
+
+
+async def test_an_entry_stored_by_1_0_0_gets_the_new_options_filled_in(hass: HomeAssistant, fake_gc: FakeGc) -> None:
+    old = {"enabled": True, "start_delay": 300, "threshold0": 50000, "threshold1": 10, "threshold2": 10, "freeze": True, "log_min_ms": 500}
+    entry = MockConfigEntry(domain=DOMAIN, title="GC tuning", data={}, options=old)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    result = await _open_settings(hass, entry)
+    suggested = {str(k): k.description["suggested_value"] for k in result["data_schema"].schema if k.description}
+    assert {k: suggested[k] for k in FORM_VALUES} == FORM_VALUES
+    assert dict(entry.options) == old  # nothing is written until Colin saves the form
+    assert entry.runtime_data.options == DEFAULT_OPTIONS
