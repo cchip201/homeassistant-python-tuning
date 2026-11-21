@@ -248,5 +248,5 @@ async def test_an_entry_stored_by_1_0_0_gets_the_new_options_filled_in(hass: Hom
     result = await _open_settings(hass, entry)
     suggested = {str(k): k.description["suggested_value"] for k in result["data_schema"].schema if k.description}
     assert {k: suggested[k] for k in FORM_VALUES} == FORM_VALUES
-    assert dict(entry.options) == old  # nothing is written until Colin saves the form
+    assert dict(entry.options) == old  # nothing is written until the user saves the form
     assert entry.runtime_data.options == DEFAULT_OPTIONS
