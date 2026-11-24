@@ -47,7 +47,8 @@ The upkeep acts only while the tuning is enabled, applied and the heap was froze
 
 ## Install
 
-- HACS: Custom repositories, add `https://github.com/cchip201/homeassistant-python-tuning` as type Integration, download, restart Home Assistant once.
+- HACS (or Marketplace in Home Assistant 2026.11+): search for **GC tuning**, download, and restart Home Assistant once.
+  - Alternative (custom repository): HACS → Custom repositories → add `https://github.com/cchip201/homeassistant-python-tuning` as type Integration, download, and restart Home Assistant once.
 - Then Settings, Devices & services, Add integration, "GC tuning". One instance only.
 - Needs Home Assistant 2026.3.0 or later (the icon is shipped in `brand/`).
 
